@@ -1,7 +1,7 @@
 name: refresh-museum-news
 on:
   schedule:
-    - cron: "23 */6 * * *"
+    - cron: "23 */6 * * *"   # 每6小时自动抓取刷新（纯官网直抓，无需密钥）
   workflow_dispatch:
 permissions:
   contents: write
@@ -23,7 +23,7 @@ jobs:
       - name: snapshot
         run: python server.py --snapshot ./docs
       - name: upload pages
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./docs
   deploy:
