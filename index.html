@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>石家庄博物馆 · 公告实时看</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3d2b1f">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:#f4f1ea;color:#2b2b2b;padding-bottom:24px}
+.topbar{position:sticky;top:0;z-index:50;background:linear-gradient(135deg,#3d2b1f,#6b4b2f);color:#fff;padding:16px 14px}
+.topbar h1{font-size:19px;font-weight:700;letter-spacing:1px}
+.topbar .sub{font-size:12px;opacity:.85;margin-top:3px}
+.topbar .ts{font-size:11px;opacity:.72;margin-top:3px}
+.search{margin:12px 14px 2px}
+.search input{width:100%;padding:11px 14px;border:1px solid #d8d0c2;border-radius:10px;font-size:14px;background:#fff;outline:none}
+.tabs{display:flex;gap:8px;padding:10px 14px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;padding:7px 14px;border-radius:20px;background:#fff;border:1px solid #d8d0c2;font-size:13px;color:#555;cursor:pointer;white-space:nowrap}
+.tab.active{background:#6b4b2f;color:#fff;border-color:#6b4b2f;font-weight:600}
+.section{padding:4px 14px}
+.sec-title{font-size:14px;font-weight:700;color:#3d2b1f;margin:14px 2px 8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sec-title .bar{width:4px;height:16px;background:#a8875a;border-radius:2px}
+.sec-title .tag{font-size:10px;color:#8b8577;font-weight:400}
+.card{background:#fff;border-radius:12px;padding:11px 13px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid transparent;cursor:pointer}
+.card:active{transform:scale(.99)}
+.card.hire{border-left-color:#c0392b}
+.card .row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.card .tt{font-size:14px;line-height:1.45;font-weight:600;color:#2b2b2b;flex:1}
+.card .meta{font-size:12px;color:#8b8577;margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.badge{font-size:11px;padding:2px 7px;border-radius:4px;flex:0 0 auto}
+.badge.hire{background:#fdecea;color:#c0392b;font-weight:700}
+.badge.info{background:#eef1f7;color:#4a6785}
+.empty{background:#fff;border:1px dashed #d8d0c2;border-radius:12px;padding:14px;margin-bottom:8px;font-size:12px;color:#8b8577;line-height:1.6}
+.empty a{color:#a8875a;font-weight:600;text-decoration:none}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.entry{background:#fff;border-radius:12px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);text-decoration:none;display:block}
+.entry .n{font-size:14px;font-weight:700;color:#3d2b1f}
+.entry .d{font-size:11px;color:#8b8577;margin-top:4px;line-height:1.4}
+.entry .go{font-size:11px;color:#a8875a;margin-top:6px;font-weight:600}
+.noticebox{background:#fff8ef;border:1px solid #eeddc2;border-radius:10px;padding:11px 13px;margin:8px 14px;font-size:12px;color:#6b5a3e;line-height:1.6}
+.footer{text-align:center;color:#a49e92;font-size:11px;padding:14px 16px 4px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>🏛 石家庄博物馆 · 公告实时看</h1>
+  <div class="sub">各大博物馆最新公告 + 人社局考试公告 全站实时</div>
+  <div class="ts" id="ts">数据加载中…</div>
+</div>
+<div class="search"><input id="q" placeholder="搜索公告关键词：招聘 公示 展览…" oninput="doSearch()"></div>
+<div class="tabs" id="tabs"></div>
+<div id="content"></div>
+<div class="noticebox" id="note" style="display:none"></div>
+<div class="footer" id="foot">由小艺 Claw 生成 · 覆盖石家庄各大博物馆</div>
+
+<script>
+var FETCH_TS="2026-09-22 14:38";
+document.getElementById("ts").textContent="数据抓取时间："+FETCH_TS+"（河北博物院直抓 + 各馆实时检索）";
+
+var NEWS=[
+{"t":"河北博物院2026年公开招聘拟聘人员名单公示","d":"2026-09-21","u":"https://www.hebeimuseum.org.cn/show-79-12626-1.html","k":"hire"},
+{"t":"河北博物院迅达电梯维保及修理服务项目结果公示","d":"2026-09-21","u":"https://www.hebeimuseum.org.cn/show-79-12627-1.html","k":"info"},
+{"t":"河北博物院院藏铜镜文物（育才院区）保护修复项目结果公示","d":"2026-09-20","u":"https://www.hebeimuseum.org.cn/show-79-12625-1.html","k":"info"},
+{"t":"河北博物院北区4号展厅入口西侧、5号展厅入口东侧区域招租公告","d":"2026-09-18","u":"https://www.hebeimuseum.org.cn/show-79-12623-1.html","k":"info"},
+{"t":"河北博物院建华院区文物修复室改造项目结果公示","d":"2026-09-18","u":"https://www.hebeimuseum.org.cn/show-79-12622-1.html","k":"info"},
+{"t":"河北博物院迅达电梯维保及修理服务项目比选公告","d":"2026-09-14","u":"https://www.hebeimuseum.org.cn/show-79-12609-1.html","k":"info"},
+{"t":"河北博物院院藏铜镜文物（育才院区）保护修复项目比选公告","d":"2026-09-11","u":"https://www.hebeimuseum.org.cn/show-79-12613-1.html","k":"info"},
+{"t":"河北博物院建华院区文物修复室改造项目比选公告","d":"2026-09-11","u":"https://www.hebeimuseum.org.cn/show-79-12608-1.html","k":"info"},
+{"t":"河北博物院门票预约系统升级维护公告","d":"2026-09-10","u":"https://www.hebeimuseum.org.cn/show-79-12607-1.html","k":"info"}
+];
+var RENLI=[
+{"t":"石家庄市2026年事业单位公开招聘（统一招聘）工作人员公告（招4786名）","d":"2026-02-05","u":"https://rsj.sjz.gov.cn/columns/cb3d71c6-1f88-4881-99e5-3ca252d801b0/202602/05/7a0b5bc0-3c38-4c0a-b742-69b9644acdf1.html","s":"石家庄市人社局"},
+{"t":"石家庄市2026年事业单位公开招聘（统一招聘）政府系统拟聘用人员公示（第二批）","d":"2026-08-25","u":"https://rsj.sjz.gov.cn/columns/fa354001-476c-4fb3-9469-f5f4e6321878/202608/25/16166940-9f8f-4c84-a4a7-6be3a331d73f.html","s":"石家庄市人社局"},
+{"t":"石家庄市2026年事业单位公开招聘（统一招聘）党群系统拟聘用人员公示（第一批）","d":"2026-08-05","u":"https://rsj.sjz.gov.cn/columns/fa354001-476c-4fb3-9469-f5f4e6321878/202608/05/626d4b90-e736-42dc-8fe2-c15ef2318d15.html","s":"石家庄市人社局"}
+];
+var MGUIDE={
+"河北博物院":"https://www.hebeimuseum.org.cn",
+"河北省科学技术馆":"https://www.hbstm.cn",
+"河北美术馆":"https://whly.hebei.gov.cn",
+"石家庄市博物馆":"https://www.sjz.gov.cn",
+"西柏坡纪念馆":"https://rsj.sjz.gov.cn",
+"河北钱币博物馆":"https://wenwu.hebei.gov.cn",
+"河北地质大学地球科学博物馆":"https://www.sjz.gov.cn",
+"河北文学馆":"https://whly.hebei.gov.cn",
+"河北省文物考古研究院":"https://rst.hebei.gov.cn"
+};
+// 后端实时填充的各馆公告
+var MUSEUMS=null;
+var TABS=[{id:"all",n:"全部"},{id:"hire",n:"招聘·公示"},{id:"hb",n:"河北博物院"},{id:"others",n:"各市馆"},{id:"exam",n:"人社考试"}];
+var cur="all";
+
+function tag(k){return k==="hire"?'<span class="badge hire">招聘/公示</span>':'<span class="badge info">馆务公告</span>';}
+function card(it){
+  return '<div class="card '+(it.k==="hire"?"hire":"")+'" onclick="window.open(\''+it.u+'\',\'_blank\')">'+
+   '<div class="row"><div class="tt">'+it.t+'</div>'+(it.k?tag(it.k):'')+'</div>'+
+   '<div class="meta"><span>'+(it.d||"")+'</span>'+(it.s?'<span>· '+it.s+'</span>':'')+'</div></div>';
+}
+function emptyMuseum(name){
+  var u=MGUIDE[name]||"#";
+  return '<div class="empty">📍 <b>'+name+'</b>：该馆暂无公开的独立公告源（部分馆仅微信公众号/政府后台发布）。<br>→ <a href="'+u+'" target="_blank">打开官方渠道查看</a></div>';
+}
+function block(name, items, extra){
+  var h='<div class="sec-title"><span class="bar"></span>'+name+(extra||'')+'</div>';
+  if(items && items.length) items.forEach(function(x){h+=card(x);});
+  else h+=emptyMuseum(name);
+  return h;
+}
+function renderTabs(){
+  document.getElementById("tabs").innerHTML=TABS.map(function(x){return '<div class="tab '+(cur===x.id?"active":"")+'" onclick="setTab(\''+x.id+'\')">'+x.n+'</div>';}).join("");
+}
+function setTab(i){cur=i;renderTabs();render();}
+function doSearch(){render();}
+function filterQ(a){var q=(document.getElementById("q").value||"").trim();if(!q)return a;return a.filter(function(x){return (x.t+' '+(x.d||'')).indexOf(q)>=0;});}
+
+function render(){
+  var h='<div class="section">';
+  var q=(document.getElementById("q").value||"").trim();
+  if(cur==="all"||cur==="hb"){
+    h+=block("河北博物院 · 最新公告", filterQ(NEWS));
+  }
+  if(cur==="all"||cur==="others"){
+    var others=Object.keys(MGUIDE).filter(function(n){return n!=="河北博物院";});
+    others.forEach(function(name){
+      var items=null;
+      if(MUSEUMS && MUSEUMS[name] && MUSEUMS[name].length){
+        items=MUSEUMS[name].map(function(x){return {t:x.title,d:x.date||"",u:x.url,s:name};});
+        if(q) items=filterQ(items);
+      }
+      h+=block(name, items);
+    });
+  }
+  if(cur==="all"||cur==="exam"){
+    h+='<div class="sec-title"><span class="bar"></span>人社 · 考试/招聘公告</div>';
+    if(RENLI.length) RENLI.forEach(function(x){h+=card(x);});
+    else h+='<div class="empty">人社系统暂无最新公告</div>';
+  }
+  if(cur==="hire"){
+    var all=NEWS.filter(function(x){return x.k==="hire";});
+    if(MUSEUMS) Object.keys(MUSEUMS).forEach(function(name){
+      (MUSEUMS[name]||[]).forEach(function(x){ if(x.title.indexOf("招")>=0||x.title.indexOf("聘")>=0||x.title.indexOf("选")>=0) all.push({t:x.title,d:x.date||"",u:x.url,s:name}); });
+    });
+    all=all.concat(RENLI);
+    all=filterQ(all);
+    if(all.length) all.forEach(function(x){h+=card(x);});
+    else h+='<div class="empty">当前暂无匹配的招聘/公示</div>';
+  }
+  h+='</div>';
+  document.getElementById("content").innerHTML=h;
+}
+
+function apply(d){ if(d){ NEWS=d.news||NEWS; RENLI=d.renli||RENLI; MUSEUMS=d.museums||MUSEUMS; document.getElementById("ts").textContent="数据更新："+(d.ts||"")+"（实时通道在线）"; renderTabs();render(); } }
+function loadLive(){
+  if(window.location.protocol==="file:")return;
+  function tryJson(){
+    var x=new XMLHttpRequest(); x.open("GET","./data.json?t="+Date.now(),true); x.timeout=6000;
+    x.onreadystatechange=function(){ if(x.readyState===4&&x.status===200){ try{apply(JSON.parse(x.responseText));}catch(e){} } };
+    x.onerror=function(){}; x.send();
+  }
+  function tryApi(){
+    var x=new XMLHttpRequest(); x.open("GET","/api/news?scope=all",true); x.timeout=6000;
+    x.onreadystatechange=function(){ if(x.readyState===4&&x.status===200){ try{apply(JSON.parse(x.responseText));}catch(e){} } else if(x.readyState===4){ tryJson(); } };
+    x.onerror=tryJson; x.send();
+  }
+  tryApi();
+}
+if("serviceWorker" in navigator){try{navigator.serviceWorker.register("./sw.js");}catch(e){}}
+renderTabs();render();loadLive();
+</script>
+</body>
+</html>

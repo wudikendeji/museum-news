@@ -1,0 +1,14 @@
+{
+  "name": "石家庄博物馆·公告实时看",
+  "short_name": "博物馆公告",
+  "description": "石家庄各大博物馆最新公告 + 人社局考试招聘公告实时查询",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#3d2b1f",
+  "theme_color": "#3d2b1f",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
