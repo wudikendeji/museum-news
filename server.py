@@ -1,70 +1,97 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""石家庄博物馆·公告实时看 —— 纯官网直抓版（不依赖任何密钥，GitHub Actions 可实时运行）
+实时抓取：各博物馆官网 + 教育考试院 + 文物局 + 人社局的公开招聘/考试公告。
 """
-石家庄博物馆 · 公告实时看 —— 自动实时后端服务
-功能：定时抓取各博物馆官网 + 人社系统招聘公告，通过 /api/news 实时提供给前端。
-部署后可做到「自动抓取 + 秒级实时」，配合 PWA 前端可添加到手机主屏幕当 App 长期使用。
-
-部署：python3 server.py [--port 8000]   依赖：python3 + requests + beautifulsoup4
-建议用 systemd / docker 保持常驻。
-"""
-import json, os, sys, time, threading, subprocess, datetime, argparse, re
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import re, json, time, os, sys, datetime, threading
+from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
-INDEX = os.path.join(ROOT, "index.html")
-CACHE = {"news": [], "renli": [], "ts": "", "lock": threading.Lock()}
-UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0 Safari/537.36"}
-MUSEUM_URL = "https://www.hebeimuseum.org.cn/list-79-1.html"
-JOB_KEYS = ["招聘", "选聘", "拟聘", "人才", "考录", "招录", "公开选调"]
-SEARCH_KEYWORDS = [
-    "石家庄市 博物馆 事业单位 招聘 公告",
-    "石家庄市 2026 事业单位 招聘 人社局",
-    "河北省 事业单位 公开招聘 公告",
+# ---------- 常量 ----------
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"}
+MUSEUM_URL = "https://www.hebeimuseum.org.cn/list-79-1.html"   # 河北博物院公告列表
+TECH_URL   = "https://www.hbstm.cn/"                            # 省科技馆
+XBP_URL    = "http://www.xbpjng.cn/"                             # 西柏坡纪念馆
+DQBWG_URL  = "https://dqbwg.hgu.edu.cn/"                         # 河北地质大学博物馆
+KG_URL     = "https://www.hbswwkg.com/node_358734.html"          # 省文物考古研究院公告
+RL_URL     = "https://rsj.sjz.gov.cn/"                           # 石家庄市人社局首页
+EDU_URLS   = ["https://www.hebeea.edu.cn/zxdt/index.html",       # 教育考试院·最新动态
+              "https://www.hebeea.edu.cn/ptgk/tzgg/index.html"]  # 教育考试院·普通高考通知
+WWJ_URL    = "https://wenwu.hebei.gov.cn/tzgg/"                  # 省文物局·通知公告
+
+# 各馆官网（有独立官网的）—— 只保留招聘/考试公告
+MUSEUM_SOURCES = [
+    ("河北省文物考古研究院", KG_URL),
+    ("西柏坡纪念馆", XBP_URL),
+    ("河北省科学技术馆", TECH_URL),
+    ("河北地质大学地球科学博物馆", DQBWG_URL),
+]
+# 官方信息源 —— 招聘/考试公告
+OFFICIAL_SOURCES = [
+    ("河北省教育考试院", EDU_URLS),
+    ("河北省文物局", [WWJ_URL]),
+    ("河北人社", [RL_URL]),
 ]
 
-# 其他博物馆实时公告（每馆一组搜索词，结果按馆归类进 APP）
-EXTRA_KEYWORDS = [
-    ("河北省科学技术馆", "河北省科学技术馆 招聘 考试 公告"),
-    ("西柏坡纪念馆", "西柏坡纪念馆 招聘 考试 公告"),
-    ("河北地质大学地球科学博物馆", "河北地质大学 地球科学博物馆 招聘 考试 公告"),
-    ("河北省文物考古研究院", "河北省文物考古研究院 招聘 考试 公告"),
+# 统一公告过滤：只保留「招聘/考试/招生」相关
+FILTER_KEYS = ["招聘","考试","选聘","招录","考录","报名","笔试","面试","拟聘",
+               "招考","录用","成绩","准考证","招生","录取"]
+
+def keep(it):
+    t = it.get("title", "") or it.get("t", "") if isinstance(it, dict) else str(it)
+    return any(k in t for k in FILTER_KEYS)
+
+DATE_RES = [
+    re.compile(r"(\d{4})[-年\.](\d{1,2})[-月\.](\d{1,2})"),      # 标题: 2026-09-17 / 2026年9月17日
+    re.compile(r"/(\d{4})-(\d{2})-(\d{2})"),                      # /c/2026-09-17/
+    re.compile(r"/columns/[^/]+/(\d{6})/(\d{2})/"),               # /columns/xxx/202608/10/
+    re.compile(r"/(\d{4})/(\d{2})/(\d{2})"),                      # /2026/08/10/
 ]
-MUSEUM_KEYS = [n for n, _ in EXTRA_KEYWORDS]
+def pick_date(text, href):
+    for rx in DATE_RES:
+        m = rx.search(text)
+        if m:
+            try: return "%s-%02d-%02d" % (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            except Exception: pass
+    return ""
 
-# 官方信息源：实时公告（搜索通道覆盖），进 APP 展示并跳正文
-OFFICIAL_FETCH = [
-    ("河北人社", "河北省 事业单位 招聘 考试 公告"),
-    ("河北省教育考试院", "河北省教育考试院 考试 报名 公告 通知"),
-    ("河北省文物局", "河北省 文物局 通知 公告"),
-]
-
-# 馆名别名（放宽匹配，提高覆盖）+ 过滤的中介/导流站域名
-ALIASES = {
-    "河北省科学技术馆": ["科技馆"],
-    "西柏坡纪念馆": ["西柏坡"],
-    "河北地质大学地球科学博物馆": ["地球科学博物馆", "地质大学"],
-    "河北省文物考古研究院": ["文物考古研究院", "考古研究院"],
-}
-BAD_DOMAINS = ["huatu.com", "zgsydw", "jrzp", "kq36", "163.com", "offcn", "eoffcn", "sydw8", "sina", "baidu.com", "sohu", "zhipin", "qiancheng", "ganji.com", "58.com"]
-# 标题中命中这些词视为招聘中介/导流，跳过
-JUNK_WORDS = ["直聘", "附近招聘", "求职", "招聘网", "招聘信息", "boss直聘", "急招", "高薪"]
-SEARCH_SCRIPT = os.path.expanduser("~/.openclaw/workspace/skills/xiaoyi-web-search/scripts/search.js")
-REFRESH_SEC = 1800  # 每30分钟自动刷新(可调整)
-
-
-def fetch(url, timeout=20):
+# ---------- 抓取 ----------
+def fetch(url, timeout=15):
     try:
-        r = requests.get(url, headers=UA, timeout=timeout)
-        r.encoding = r.apparent_encoding or "utf-8"
+        r = requests.get(url, headers=UA, timeout=timeout, allow_redirects=True)
+        if r.encoding is None or r.encoding.lower() in ("iso-8859-1", "ascii"):
+            r.encoding = "utf-8"
         return r.text
-    except Exception:
+    except Exception as e:
+        print("[fetch err]", url, str(e)[:50], flush=True)
         return ""
 
+def extract_list(url):
+    """通用公告列表抓取：从标题或链接提取日期，返回 [{title,date,url}]。"""
+    html = fetch(url)
+    if not html:
+        return []
+    soup = BeautifulSoup(html, "html.parser")
+    out, seen = [], set()
+    skip = {"首页","下一页","上一页","更多","更多》", ">", "·"}
+    for a in soup.find_all("a", href=True):
+        t = a.get_text(" ", strip=True)
+        raw = a["href"].strip()
+        if not t or len(t) < 8 or t in skip or raw.startswith("javascript") or raw == "#":
+            continue
+        href = urljoin(url, raw)
+        date = pick_date(t, href)
+        if not date:
+            continue
+        title = re.sub(r"[\[\（(]\d{4}[-年/\.]\d{1,2}[-月/\.]\d{1,2}[\]\）)]?", "", t).strip("· |\t")
+        if href not in seen:
+            seen.add(href)
+            out.append({"title": title, "date": date, "url": href})
+    return out
 
 def fetch_museum_news():
+    """河北博物院公告列表（专用解析 li.flex 结构）。"""
     items = []
     html = fetch(MUSEUM_URL)
     if not html:
@@ -74,194 +101,102 @@ def fetch_museum_news():
         a = li.find_parent("a")
         if not a:
             continue
-        href = a.get("href", "")
         t = li.select_one("span.f16")
         d = li.select_one("p.f14")
         title = t.get_text(strip=True) if t else ""
         date = d.get_text(strip=True) if d else ""
         if not title:
             continue
-        url = href if href.startswith("http") else "https://www.hebeimuseum.org.cn" + href
-        kind = "hire" if any(k in title for k in JOB_KEYS) else "info"
-        items.append({"t": title, "d": date, "u": url, "k": kind, "src": "河北博物院官网"})
+        url = a.get("href", "")
+        url = url if url.startswith("http") else "https://www.hebeimuseum.org.cn" + url
+        items.append({"t": title, "d": date, "u": url, "k": "hire" if keep({"t": title}) else "info"})
     return items
 
-
-# 统一公告过滤：只保留「招聘/考试」相关内容
-FILTER_KEYS = ["招聘","考试","选聘","招录","考录","笔试","面试","拟聘","招考","录用","成绩","准考证"]
-def keep(it):
-    t = (it.get("title","") or it.get("t","")) if isinstance(it, dict) else str(it)
-    return any(k in t for k in FILTER_KEYS)
-
-def parse_search(script, keyword):
-    """调用 xiaoyi 搜索脚本，返回 (title,url,date) 列表。脚本缺省返回空。"""
-    out = []
-    if not os.path.exists(script):
-        return out
-    try:
-        p = subprocess.run(["node", script, keyword, "-n", "10"],
-                           capture_output=True, text=True, timeout=45,
-                           cwd=os.path.dirname(script))
-        text = p.stdout
-        blocks = text.split("📌")
-        for b in blocks[1:]:
-            lines = b.splitlines()
-            title = ""
-            url = ""
-            date = ""
-            for ln in lines:
-                s = ln.strip()
-                m = re.match(r"^\d+\.\s*(.+)$", s)
-                if m and not title:
-                    title = m.group(1).strip()
-                if s.startswith("🔗") and not url:
-                    url = s.replace("🔗", "").strip()
-                dm = re.search(r"(\d{4}-\d{2}-\d{2})", s)
-                if dm and not date:
-                    date = dm.group(1)
-            if title and url:
-                out.append({"title": title, "url": url, "date": date})
-    except Exception as e:
-        print("[search err]", e, flush=True)
-    return out
-
+# ---------- 刷新 ----------
+CACHE = {"lock": threading.Lock(), "news": [], "renli": [], "museums": {}, "official": {}, "ts": ""}
 
 def refresh():
-    news = [x for x in fetch_museum_news() if keep(x)]
-    # 人社/招聘实时
-    renli = []
-    for kw in SEARCH_KEYWORDS:
-        for it in parse_search(SEARCH_SCRIPT, kw):
-            if keep(it):
-                renli.append(it)
-    # 各博物馆实时公告（搜索覆盖全馆，按馆归类）
-    museums = {}
-    for name, kw in EXTRA_KEYWORDS:
-        got = []
-        for it in parse_search(SEARCH_SCRIPT, kw):
-            if not keep(it):
-                continue
-            aliases = ALIASES.get(name, [name])
-            if not any(a in it["title"] for a in aliases):
-                continue
-            if any(b in it["url"] for b in BAD_DOMAINS):
-                continue
-            if any(w in it["title"] for w in JUNK_WORDS):
-                continue
-            got.append(it)
-        seen2, ded = set(), []
-        for it in got:
-            if it["url"] in seen2:
-                continue
-            seen2.add(it["url"]); ded.append(it)
-        museums[name] = ded[:6]
-    # 官方信息源实时公告
-    official = {}
-    for oname, okw in OFFICIAL_FETCH:
-        ogot = []
-        for it in parse_search(SEARCH_SCRIPT, okw):
-            if not keep(it):
-                continue
-            if any(b in it["url"] for b in BAD_DOMAINS):
-                continue
-            if any(w in it["title"] for w in JUNK_WORDS):
-                continue
-            ogot.append(it)
-        seen3, odd = set(), []
-        for it in ogot:
-            if it["url"] in seen3:
-                continue
-            seen3.add(it["url"]); odd.append(it)
-        official[oname] = odd[:6]
-    # 人社去重
-    seen, rr = set(), []
-    for it in renli:
-        if it["url"] in seen:
-            continue
-        seen.add(it["url"]); rr.append(it)
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    news = [x for x in fetch_museum_news() if keep(x)]
+    renli = [{"t": x["title"], "d": x.get("date", ""), "u": x["url"], "s": "石家庄市人社局"}
+             for x in extract_list(RL_URL) if keep(x)][:15]
+    museums = {name: [x for x in extract_list(url) if keep(x)][:6] for name, url in MUSEUM_SOURCES}
+    official = {}
+    for name, urls in OFFICIAL_SOURCES:
+        got, seen = [], set()
+        for u in urls:
+            for x in extract_list(u):
+                if x["url"] in seen:
+                    continue
+                seen.add(x["url"])
+                if keep(x):
+                    got.append(x)
+        official[name] = got[:6]
     with CACHE["lock"]:
         CACHE["news"] = news
-        CACHE["renli"] = rr[:15]
+        CACHE["renli"] = renli
         CACHE["museums"] = museums
         CACHE["official"] = official
         CACHE["ts"] = now
-    total_m = sum(len(v) for v in museums.values())
-    print(f"[refresh] {now} news={len(news)} renli={len(rr)} museums={total_m}", flush=True)
+    print("[refresh]", now, "news=%d renli=%d museums=%s official=%s" %
+          (len(news), len(renli), {k: len(v) for k, v in museums.items()}, {k: len(v) for k, v in official.items()}), flush=True)
 
-
-def loop():
-    while True:
-        try:
-            refresh()
-        except Exception as e:
-            print("[refresh err]", e, flush=True)
-        time.sleep(REFRESH_SEC)
-
-
-class Handler(BaseHTTPRequestHandler):
-    def log_message(self, *a):
-        pass
-
-    def do_GET(self):
-        if self.path.startswith("/api/news"):
-            with CACHE["lock"]:
-                self._json({"ts": CACHE["ts"], "news": CACHE["news"], "renli": CACHE["renli"], "museums": CACHE.get("museums", {}), "official": CACHE.get("official", {})})
-        elif self.path in ("/", "/index.html"):
-            try:
-                with open(INDEX, "rb") as f:
-                    data = f.read()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-            except Exception:
-                self._json({"error": "index missing"})
-        else:
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write(b"404")
-
-    def _json(self, obj):
-        data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
-
-
-def make_snapshot(dest):
-    """刷新一次并生成静态快照(data.json + 前端静态文件)，供 GitHub Pages 等静态部署。"""
+# ---------- HTTP / Snapshot ----------
+def make_snapshot(out_dir):
+    os.makedirs(out_dir, exist_ok=True)
     refresh()
-    os.makedirs(dest, exist_ok=True)
     with CACHE["lock"]:
-        data = {"ts": CACHE["ts"], "news": CACHE["news"], "renli": CACHE["renli"], "museums": CACHE["museums"], "official": CACHE["official"]}
-    with open(os.path.join(dest, "data.json"), "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    for name in ("index.html", "manifest.json", "sw.js", "icon.svg"):
-        src = os.path.join(ROOT, name)
-        if os.path.exists(src):
-            with open(src, "rb") as f, open(os.path.join(dest, name), "wb") as g:
-                g.write(f.read())
-    print(f"[snapshot] written -> {dest}/ (news={len(data['news'])}, renli={len(data['renli'])})")
-
+        data = {"ts": CACHE["ts"], "news": CACHE["news"], "renli": CACHE["renli"],
+                "museums": CACHE["museums"], "official": CACHE["official"]}
+    # 同步前端同目录副本（若存在）
+    html_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
+    html_dst = os.path.join(out_dir, "index.html")
+    try:
+        import shutil; shutil.copyfile(html_src, html_dst)
+    except Exception as e:
+        print("[copy index]", e, flush=True)
+    with open(os.path.join(out_dir, "data.json"), "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=1)
+    # 复制静态资源
+    for fn in ("manifest.json", "sw.js", "icon.svg"):
+        try:
+            src = os.path.join(os.path.dirname(os.path.abspath(__file__)), fn)
+            if os.path.exists(src):
+                import shutil; shutil.copyfile(src, os.path.join(out_dir, fn))
+        except Exception:
+            pass
+    print("[snapshot] written -> %s (news=%d, renli=%d)" % (out_dir, len(news := data["news"]), len(data["renli"])), flush=True)
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=8000)
-    ap.add_argument("--snapshot", type=str, default="", help="生成静态快照到目录并退出(供 GitPage 等静态托管)")
-    args = ap.parse_args()
-    if args.snapshot:
-        make_snapshot(args.snapshot)
+    if "--snapshot" in sys.argv:
+        i = sys.argv.index("--snapshot")
+        out = sys.argv[i + 1] if len(sys.argv) > i + 1 else "./docs"
+        make_snapshot(out)
         return
-    thread = threading.Thread(target=loop, daemon=True)
-    thread.start()
-    print(f"Serving on :{args.port}")
-    ThreadingHTTPServer(("0.0.0.0", args.port), Handler).serve_forever()
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    refresh()
+    t = threading.Thread(target=lambda: (time.sleep(1800), refresh()), daemon=True)
+    port = int(os.environ.get("PORT", "8000"))
 
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+        def do_GET(self):
+            if self.path.startswith("/api/news"):
+                with CACHE["lock"]:
+                    body = json.dumps({"ts": CACHE["ts"], "news": CACHE["news"], "renli": CACHE["renli"],
+                                       "museums": CACHE.get("museums", {}), "official": CACHE.get("official", {})},
+                                      ensure_ascii=False)
+                b = body.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+            else:
+                self.send_response(404); self.end_headers()
+    print("server on :%d" % port, flush=True)
+    HTTPServer(("0.0.0.0", port), H).serve_forever()
 
 if __name__ == "__main__":
     main()

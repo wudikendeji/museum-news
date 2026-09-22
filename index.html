@@ -150,7 +150,14 @@ function render(){
   document.getElementById("content").innerHTML=h;
 }
 
-function apply(d){ if(d){ if(d.news && d.news.length) NEWS=d.news; if(d.renli && d.renli.length) RENLI=d.renli; if(d.museums) MUSEUMS=d.museums; OFFICAL_DATA=d.official||OFFICAL_DATA; document.getElementById("ts").textContent="数据更新："+(d.ts||"")+"（实时通道在线）"; renderTabs();render(); } }
+function apply(d){ if(d){
+  if(d.news && d.news.length) NEWS=d.news;
+  if(d.renli && d.renli.length) RENLI=d.renli;
+  if(d.museums && Object.keys(d.museums).length) MUSEUMS=d.museums;
+  if(d.official && Object.keys(d.official).length) OFFICAL_DATA=d.official;
+  document.getElementById("ts").textContent="数据更新："+(d.ts||"");
+  renderTabs();render();
+} }
 function loadLive(){
   if(window.location.protocol==="file:")return;
   function tryJson(){
