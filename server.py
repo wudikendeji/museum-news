@@ -27,26 +27,25 @@ SEARCH_KEYWORDS = [
 
 # 其他博物馆实时公告（每馆一组搜索词，结果按馆归类进 APP）
 EXTRA_KEYWORDS = [
-    ("河北省科学技术馆", "河北省科学技术馆 通知 公告 动态"),
-    ("河北美术馆", "河北美术馆 展览 公告 动态"),
-    ("石家庄市博物馆", "石家庄市博物馆 公告 通知"),
-    ("西柏坡纪念馆", "西柏坡纪念馆 公告 招聘"),
-    ("河北钱币博物馆", "河北钱币博物馆 公告"),
-    ("河北地质大学地球科学博物馆", "河北地质大学 地球科学博物馆 公告"),
-    ("河北文学馆", "河北文学馆 公告"),
-    ("河北省文物考古研究院", "河北省文物考古研究院 公告"),
+    ("河北省科学技术馆", "河北省科学技术馆 招聘 考试 公告"),
+    ("西柏坡纪念馆", "西柏坡纪念馆 招聘 考试 公告"),
+    ("河北地质大学地球科学博物馆", "河北地质大学 地球科学博物馆 招聘 考试 公告"),
+    ("河北省文物考古研究院", "河北省文物考古研究院 招聘 考试 公告"),
 ]
 MUSEUM_KEYS = [n for n, _ in EXTRA_KEYWORDS]
+
+# 官方信息源：实时公告（搜索通道覆盖），进 APP 展示并跳正文
+OFFICIAL_FETCH = [
+    ("河北人社", "河北省 事业单位 招聘 考试 公告"),
+    ("河北省教育考试院", "河北省教育考试院 考试 报名 公告 通知"),
+    ("河北省文物局", "河北省 文物局 通知 公告"),
+]
 
 # 馆名别名（放宽匹配，提高覆盖）+ 过滤的中介/导流站域名
 ALIASES = {
     "河北省科学技术馆": ["科技馆"],
-    "河北美术馆": ["美术馆"],
-    "石家庄市博物馆": ["市博物馆", "石家庄市博物馆"],
     "西柏坡纪念馆": ["西柏坡"],
-    "河北钱币博物馆": ["钱币"],
     "河北地质大学地球科学博物馆": ["地球科学博物馆", "地质大学"],
-    "河北文学馆": ["文学馆"],
     "河北省文物考古研究院": ["文物考古研究院", "考古研究院"],
 }
 BAD_DOMAINS = ["huatu.com", "zgsydw", "jrzp", "kq36", "163.com", "offcn", "eoffcn", "sydw8", "sina", "baidu.com", "sohu", "zhipin", "qiancheng", "ganji.com", "58.com"]
@@ -88,6 +87,12 @@ def fetch_museum_news():
     return items
 
 
+# 统一公告过滤：只保留「招聘/考试」相关内容
+FILTER_KEYS = ["招聘","考试","选聘","招录","考录","笔试","面试","拟聘","招考","录用","成绩","准考证"]
+def keep(it):
+    t = (it.get("title","") or it.get("t","")) if isinstance(it, dict) else str(it)
+    return any(k in t for k in FILTER_KEYS)
+
 def parse_search(script, keyword):
     """调用 xiaoyi 搜索脚本，返回 (title,url,date) 列表。脚本缺省返回空。"""
     out = []
@@ -114,7 +119,7 @@ def parse_search(script, keyword):
                 dm = re.search(r"(\d{4}-\d{2}-\d{2})", s)
                 if dm and not date:
                     date = dm.group(1)
-            if title and url and any(k in title for k in JOB_KEYS):
+            if title and url:
                 out.append({"title": title, "url": url, "date": date})
     except Exception as e:
         print("[search err]", e, flush=True)
@@ -122,16 +127,20 @@ def parse_search(script, keyword):
 
 
 def refresh():
-    news = fetch_museum_news()
+    news = [x for x in fetch_museum_news() if keep(x)]
     # 人社/招聘实时
     renli = []
     for kw in SEARCH_KEYWORDS:
-        renli.extend(parse_search(SEARCH_SCRIPT, kw))
+        for it in parse_search(SEARCH_SCRIPT, kw):
+            if keep(it):
+                renli.append(it)
     # 各博物馆实时公告（搜索覆盖全馆，按馆归类）
     museums = {}
     for name, kw in EXTRA_KEYWORDS:
         got = []
         for it in parse_search(SEARCH_SCRIPT, kw):
+            if not keep(it):
+                continue
             aliases = ALIASES.get(name, [name])
             if not any(a in it["title"] for a in aliases):
                 continue
@@ -146,6 +155,24 @@ def refresh():
                 continue
             seen2.add(it["url"]); ded.append(it)
         museums[name] = ded[:6]
+    # 官方信息源实时公告
+    official = {}
+    for oname, okw in OFFICIAL_FETCH:
+        ogot = []
+        for it in parse_search(SEARCH_SCRIPT, okw):
+            if not keep(it):
+                continue
+            if any(b in it["url"] for b in BAD_DOMAINS):
+                continue
+            if any(w in it["title"] for w in JUNK_WORDS):
+                continue
+            ogot.append(it)
+        seen3, odd = set(), []
+        for it in ogot:
+            if it["url"] in seen3:
+                continue
+            seen3.add(it["url"]); odd.append(it)
+        official[oname] = odd[:6]
     # 人社去重
     seen, rr = set(), []
     for it in renli:
@@ -157,6 +184,7 @@ def refresh():
         CACHE["news"] = news
         CACHE["renli"] = rr[:15]
         CACHE["museums"] = museums
+        CACHE["official"] = official
         CACHE["ts"] = now
     total_m = sum(len(v) for v in museums.values())
     print(f"[refresh] {now} news={len(news)} renli={len(rr)} museums={total_m}", flush=True)
@@ -178,7 +206,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith("/api/news"):
             with CACHE["lock"]:
-                self._json({"ts": CACHE["ts"], "news": CACHE["news"], "renli": CACHE["renli"], "museums": CACHE.get("museums", {})})
+                self._json({"ts": CACHE["ts"], "news": CACHE["news"], "renli": CACHE["renli"], "museums": CACHE.get("museums", {}), "official": CACHE.get("official", {})})
         elif self.path in ("/", "/index.html"):
             try:
                 with open(INDEX, "rb") as f:
@@ -210,7 +238,7 @@ def make_snapshot(dest):
     refresh()
     os.makedirs(dest, exist_ok=True)
     with CACHE["lock"]:
-        data = {"ts": CACHE["ts"], "news": CACHE["news"], "renli": CACHE["renli"], "museums": CACHE["museums"]}
+        data = {"ts": CACHE["ts"], "news": CACHE["news"], "renli": CACHE["renli"], "museums": CACHE["museums"], "official": CACHE["official"]}
     with open(os.path.join(dest, "data.json"), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     for name in ("index.html", "manifest.json", "sw.js", "icon.svg"):

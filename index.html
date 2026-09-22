@@ -23,7 +23,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 .sec-title{font-size:14px;font-weight:700;color:#3d2b1f;margin:14px 2px 8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .sec-title .bar{width:4px;height:16px;background:#a8875a;border-radius:2px}
 .sec-title .tag{font-size:10px;color:#8b8577;font-weight:400}
-.card{background:#fff;border-radius:12px;padding:11px 13px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid transparent;cursor:pointer}
+.card{display:block;background:#fff;border-radius:12px;padding:11px 13px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid transparent;cursor:pointer;text-decoration:none;color:inherit}
 .card:active{transform:scale(.99)}
 .card.hire{border-left-color:#c0392b}
 .card .row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
@@ -56,50 +56,39 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 <div class="footer" id="foot">由小艺 Claw 生成 · 覆盖石家庄各大博物馆</div>
 
 <script>
-var FETCH_TS="2026-09-22 14:38";
+var FETCH_TS="2026-09-22 16:10";
 document.getElementById("ts").textContent="数据抓取时间："+FETCH_TS+"（河北博物院直抓 + 各馆实时检索）";
 
-var NEWS=[
-{"t":"河北博物院2026年公开招聘拟聘人员名单公示","d":"2026-09-21","u":"https://www.hebeimuseum.org.cn/show-79-12626-1.html","k":"hire"},
-{"t":"河北博物院迅达电梯维保及修理服务项目结果公示","d":"2026-09-21","u":"https://www.hebeimuseum.org.cn/show-79-12627-1.html","k":"info"},
-{"t":"河北博物院院藏铜镜文物（育才院区）保护修复项目结果公示","d":"2026-09-20","u":"https://www.hebeimuseum.org.cn/show-79-12625-1.html","k":"info"},
-{"t":"河北博物院北区4号展厅入口西侧、5号展厅入口东侧区域招租公告","d":"2026-09-18","u":"https://www.hebeimuseum.org.cn/show-79-12623-1.html","k":"info"},
-{"t":"河北博物院建华院区文物修复室改造项目结果公示","d":"2026-09-18","u":"https://www.hebeimuseum.org.cn/show-79-12622-1.html","k":"info"},
-{"t":"河北博物院迅达电梯维保及修理服务项目比选公告","d":"2026-09-14","u":"https://www.hebeimuseum.org.cn/show-79-12609-1.html","k":"info"},
-{"t":"河北博物院院藏铜镜文物（育才院区）保护修复项目比选公告","d":"2026-09-11","u":"https://www.hebeimuseum.org.cn/show-79-12613-1.html","k":"info"},
-{"t":"河北博物院建华院区文物修复室改造项目比选公告","d":"2026-09-11","u":"https://www.hebeimuseum.org.cn/show-79-12608-1.html","k":"info"},
-{"t":"河北博物院门票预约系统升级维护公告","d":"2026-09-10","u":"https://www.hebeimuseum.org.cn/show-79-12607-1.html","k":"info"}
-];
-var RENLI=[
-{"t":"石家庄市2026年事业单位公开招聘（统一招聘）工作人员公告（招4786名）","d":"2026-02-05","u":"https://rsj.sjz.gov.cn/columns/cb3d71c6-1f88-4881-99e5-3ca252d801b0/202602/05/7a0b5bc0-3c38-4c0a-b742-69b9644acdf1.html","s":"石家庄市人社局"},
-{"t":"石家庄市2026年事业单位公开招聘（统一招聘）政府系统拟聘用人员公示（第二批）","d":"2026-08-25","u":"https://rsj.sjz.gov.cn/columns/fa354001-476c-4fb3-9469-f5f4e6321878/202608/25/16166940-9f8f-4c84-a4a7-6be3a331d73f.html","s":"石家庄市人社局"},
-{"t":"石家庄市2026年事业单位公开招聘（统一招聘）党群系统拟聘用人员公示（第一批）","d":"2026-08-05","u":"https://rsj.sjz.gov.cn/columns/fa354001-476c-4fb3-9469-f5f4e6321878/202608/05/626d4b90-e736-42dc-8fe2-c15ef2318d15.html","s":"石家庄市人社局"}
-];
+var NEWS=[{"t":"河北博物院2026年公开招聘拟聘人员名单公示","d":"2026-09-21","u":"https://www.hebeimuseum.org.cn/show-79-12626-1.html","k":"hire"}];
+var RENLI=[{"t":"石家庄市2026年事业单位公开招聘（统一招聘）工作人员公告","d":"","u":"https://rsj.sjz.gov.cn/columns/fa354001-476c-4fb3-9469-f5f4e6321878/202602/05/64cf6136-8cc6-45b6-959b-21263402b4db.html","s":"石家庄市人社局"},{"t":"2026年石家庄市事业单位公开招聘（统一招聘）政府系统拟聘用人员公示公告（第一批）_河北华图","d":"","u":"https://he.huatu.com/2026/0805/1712844.html","s":"石家庄市人社局"},{"t":"2026石家庄市事业单位招聘信息_中公石家庄市人事考试_石家庄市事业编招聘报名入口时间","d":"2026-08-06","u":"http://www.zgsydw.com/sy/shijiazhuang","s":"石家庄市人社局"},{"t":"石家庄市人事考试中心 2026年公开选聘事业单位工作人员公告","d":"","u":"https://rsj.sjz.gov.cn/columns/cb3d71c6-1f88-4881-99e5-3ca252d801b0/202605/14/f64e89fc-bf91-477d-a601-17e45727dfd6.html","s":"石家庄市人社局"},{"t":"石家庄市2026年度事业单位公开招聘笔试工作预通告","d":"","u":"http://rsj.sjz.gov.cn/columns/fa354001-476c-4fb3-9469-f5f4e6321878/202512/05/a3ce62bc-5f65-474d-9d04-39a74169ff4b.html","s":"石家庄市人社局"},{"t":"石家庄事业单位招聘_2026石家庄事业单位考试_事业编招聘信息-华图事业单位","d":"2026-02-05","u":"https://m.huatu.com/info/list/14463_1.html","s":"石家庄市人社局"},{"t":"石家庄市2025年度事业单位公开招聘 政府系统第二批拟聘用人员公示","d":"","u":"https://rsj.sjz.gov.cn/columns/fa354001-476c-4fb3-9469-f5f4e6321878/202508/25/9381c769-6ab2-4d7e-8db0-f3d629d87184.html","s":"石家庄市人社局"},{"t":"2026石家庄事业单位招聘_石家庄事业编人才考试-石家庄中公事业单位考试网","d":"2026-08-21","u":"http://www.zgsydw.com/city/130_1.html","s":"石家庄市人社局"},{"t":"石家庄市2026年事业单位公开招聘（统一招聘）政府系统拟聘用人员公示公告（第一批）","d":"","u":"https://rsj.sjz.gov.cn/columns/fa354001-476c-4fb3-9469-f5f4e6321878/202608/05/25bc39e5-82cd-4c27-b941-978b27933a44.html","s":"石家庄市人社局"},{"t":"2026年石家庄市事业单位公开招聘（统一招聘）政府系统拟聘用人员公示公告（第二批）_华图教育","d":"","u":"https://m.he.huatu.com/2026/0825/1713236.html","s":"石家庄市人社局"},{"t":"石家庄市人事考试服务平台（https://shijiazhuang.cptae.com/tip）- 石家庄本地宝","d":"","u":"https://m.sjz.bendibao.com/job/81180.shtm","s":"石家庄市人社局"},{"t":"石家庄市2026年事业单位公开选聘拟聘人员（石家庄市人事考试中心）","d":"","u":"https://rsj.sjz.gov.cn/attachments/1/202608/05/%E7%9F%B3%E5%AE%B6%E5%BA%84%E5%B8%822026%E5%B9%B4%E4%BA%8B%E4%B8%9A%E5%8D%95%E4%BD%8D%E5%85%AC%E5%BC%80%E9%80%89%E8%81%98%E6%8B%9F%E8%81%98%E4%BA%BA%E5%91%98%EF%BC%88%E7%9F%B3%E5%AE%B6%E5%BA%84%E5%B8%82%E4%BA%BA%E4%BA%8B%E8%80%83%E8%AF%95%E4%B8%AD%E5%BF%83%EF%BC%8920260805105142880.xls?sid=fabf6b53-e050-4172-b8f4-7e681895ea6f","s":"石家庄市人社局"},{"t":"2026年石家庄市事业单位公开招聘（统一招聘）政府系统拟聘用人员公示公告（第一批）_华图教育","d":"","u":"https://m.he.huatu.com/2026/0805/1712844.html","s":"石家庄市人社局"},{"t":"石家庄市2026年事业单位公开招聘（统一招聘）党群系统拟聘用人员公示公告（第一批）","d":"","u":"https://rsj.sjz.gov.cn/columns/fa354001-476c-4fb3-9469-f5f4e6321878/202608/05/626d4b90-e736-42dc-8fe2-c15ef2318d15.html","s":"石家庄市人社局"},{"t":"2026河北石家庄市事业单位公开招聘（统一招聘）政府系统拟聘用人员公示公告（第二批）","d":"","u":"https://tr.jrzp.com/shiyezhaopin/516FA241BA4F25F5.shtml","s":"石家庄市人社局"}];
 var MGUIDE={
 "河北博物院":"https://www.hebeimuseum.org.cn",
 "河北省科学技术馆":"https://www.hbstm.cn",
-"河北美术馆":"https://whly.hebei.gov.cn",
-"石家庄市博物馆":"https://www.sjz.gov.cn",
-"西柏坡纪念馆":"https://rsj.sjz.gov.cn",
-"河北钱币博物馆":"https://wenwu.hebei.gov.cn",
-"河北地质大学地球科学博物馆":"https://www.sjz.gov.cn",
-"河北文学馆":"https://whly.hebei.gov.cn",
-"河北省文物考古研究院":"https://rst.hebei.gov.cn"
+"西柏坡纪念馆":"http://www.xbpjng.cn",
+"河北地质大学地球科学博物馆":"https://dqbwg.hgu.edu.cn",
+"河北省文物考古研究院":"https://www.hbswwkg.com"
 };
+var OFFICIAL_MAP={
+"河北人社":"https://rst.hebei.gov.cn",
+"河北省教育考试院":"https://www.hebeea.edu.cn",
+"河北省文物局":"https://wenwu.hebei.gov.cn"
+};
+var OFFICIAL_ORDER=["河北人社","河北省教育考试院","河北省文物局"];
+var OFFICAL_DATA={"河北人社":[{"title":"河北人才网_通知公告_河北省省直事业单位2026年下半年公开招聘(统一招聘)工作人员公告","url":"https://www.hbrc.com.cn/web/article?aid=104332","date":""},{"title":"河北省省直事业单位2026年下半年招聘公告来了_肃宁县人民政府","url":"https://suning.gov.cn/suning/c112275/202608/774026c9c91348a2a457b1e930b80b8e.shtml","date":""},{"title":"2026年下半年河北省省直事业单位统一招聘工作人员公告- 唐山本地宝","url":"http://ts.bendibao.com/job/2026820/31711.shtm","date":""},{"title":"河北省教育厅直属事业单位2026年公开招聘工作人员公告-公示公告-河北省教育厅","url":"http://www.hee.gov.cn/col/1405611268996/2026/02/05/1770286858930.html","date":""}],"河北省教育考试院":[{"title":"2026年下半年河北省高等教育自学考试理论课程报名公告--河北省教育考试院","url":"https://www.hebeea.edu.cn/c/2026-08-24/493278.html","date":"2026-08-24"},{"title":"考试安排公布！河北省教育考试院最新公告_河北日报客户端","url":"https://hbxw.hebnews.cn/news/626470.html?from_channel=52e5f902cf81d754a434fb50&from_","date":""},{"title":"通知公告--河北省教育考试院","url":"https://www.hebeea.edu.cn/ptgk/tzgg/","date":"2026-07-01"},{"title":"河北省教育考试院最新公告","url":"https://www.bjnews.com.cn/detail/1787915223019270.html","date":""},{"title":"通知公告--河北省教育考试院","url":"https://www.hebeea.edu.cn/zhxx/tzgg/","date":"2026-08-28"},{"title":"即将开始报名！河北省教育考试院发布公告","url":"https://www.hebtv.com/0/0rmhlm/sydw/zw/hbfc/12136976.shtml","date":""}],"河北省文物局":[]};
 // 后端实时填充的各馆公告
-var MUSEUMS=null;
+var MUSEUMS={"河北省科学技术馆":[],"西柏坡纪念馆":[{"title":"2021西柏坡纪念馆招聘专技d1人_职位详情_公考雷达","url":"https://wap.gongkaoleida.com/exam/job/7185920","date":""}],"河北地质大学地球科学博物馆":[{"title":"2025年河北省地质大学第二次公开招聘工作人员65名公告—河北教师招聘—易考吧","url":"https://www.etest8.com/jiaoshizhaopin/hebei/tongzhi/13963960_2.html","date":""}],"河北省文物考古研究院":[{"title":"河北省文物考古研究院2026年度公开招聘面试安排及须知_河北省文物考古研究院","url":"http://www.hbswwkg.com/2026-05/29/content_9518745.html","date":""},{"title":"2026河北省文物考古研究院公开招聘拟聘人员名单公示-事业单位考试-新都网","url":"http://edu.newdu.com/4974077.html","date":""},{"title":"河北省文物考古研究院2026年公开招聘工作人员体检通知_河北省文物考古研究院","url":"http://www.hbswwkg.com/2026-06/09/content_9522388.html","date":""},{"title":"河北省文物考古研究院2026年公开选聘工作人员公告_河北省文物考古研究院","url":"http://www.hbswwkg.com/2026-05/11/content_9511318.html","date":""},{"title":"2026年河北省文物考古研究院招聘报名方式- 石家庄本地宝","url":"https://m.sjz.bendibao.com/job/81749.shtm","date":""},{"title":"河北省文物考古研究院关于2026年度公开招聘面试考生资格复审的通知_河北省文物考古研究院","url":"http://www.hbswwkg.com/2026-05/12/content_9511803.html","date":""}]};
 var TABS=[{id:"all",n:"全部"},{id:"hire",n:"招聘·公示"},{id:"hb",n:"河北博物院"},{id:"others",n:"各市馆"},{id:"exam",n:"人社考试"}];
 var cur="all";
 
 function tag(k){return k==="hire"?'<span class="badge hire">招聘/公示</span>':'<span class="badge info">馆务公告</span>';}
 function card(it){
-  return '<div class="card '+(it.k==="hire"?"hire":"")+'" onclick="window.open(\''+it.u+'\',\'_blank\')">'+
+  return '<a class="card '+(it.k==="hire"?"hire":"")+'" href="'+it.u+'" target="_blank" rel="noopener">'+
    '<div class="row"><div class="tt">'+it.t+'</div>'+(it.k?tag(it.k):'')+'</div>'+
-   '<div class="meta"><span>'+(it.d||"")+'</span>'+(it.s?'<span>· '+it.s+'</span>':'')+'</div></div>';
+   '<div class="meta"><span>'+(it.d||"")+'</span>'+(it.s?'<span>· '+it.s+'</span>':'')+'</div></a>';
 }
 function emptyMuseum(name){
-  var u=MGUIDE[name]||"#";
-  return '<div class="empty">📍 <b>'+name+'</b>：该馆暂无公开的独立公告源（部分馆仅微信公众号/政府后台发布）。<br>→ <a href="'+u+'" target="_blank">打开官方渠道查看</a></div>';
+  var u=MGUIDE[name]||OFFICIAL_MAP[name]||"#";
+  return '<div class="empty">📍 <b>'+name+'</b>：当前暂无最新公告，需查看请打开官方页面。<br>→ <a href="'+u+'" target="_blank">打开官方渠道查看</a></div>';
 }
 function block(name, items, extra){
   var h='<div class="sec-title"><span class="bar"></span>'+name+(extra||'')+'</div>';
@@ -118,7 +107,7 @@ function render(){
   var h='<div class="section">';
   var q=(document.getElementById("q").value||"").trim();
   if(cur==="all"||cur==="hb"){
-    h+=block("河北博物院 · 最新公告", filterQ(NEWS));
+    h+=block("河北博物院 · 最新公告", filterQ(NEWS), '<a href="https://www.hebeimuseum.org.cn/list-79-1.html" target="_blank" rel="noopener" style="font-size:11px;color:#a8875a;text-decoration:none;font-weight:600">官网最新公告 →</a>');
   }
   if(cur==="all"||cur==="others"){
     var others=Object.keys(MGUIDE).filter(function(n){return n!=="河北博物院";});
@@ -130,6 +119,17 @@ function render(){
       }
       h+=block(name, items);
     });
+    if(cur==="all"||cur==="others"){
+      h+='<div class="sec-title"><span class="bar"></span>官方信息源 · 实时公告</div>';
+      OFFICIAL_ORDER.forEach(function(name){
+        var items=null;
+        if(OFFICAL_DATA && OFFICAL_DATA[name] && OFFICAL_DATA[name].length){
+          items=OFFICAL_DATA[name].map(function(x){return {t:x.title,d:x.date||"",u:x.url,s:name};});
+          if(q) items=filterQ(items);
+        }
+        h+=block(name, items);
+      });
+    }
   }
   if(cur==="all"||cur==="exam"){
     h+='<div class="sec-title"><span class="bar"></span>人社 · 考试/招聘公告</div>';
@@ -150,7 +150,7 @@ function render(){
   document.getElementById("content").innerHTML=h;
 }
 
-function apply(d){ if(d){ NEWS=d.news||NEWS; RENLI=d.renli||RENLI; MUSEUMS=d.museums||MUSEUMS; document.getElementById("ts").textContent="数据更新："+(d.ts||"")+"（实时通道在线）"; renderTabs();render(); } }
+function apply(d){ if(d){ if(d.news && d.news.length) NEWS=d.news; if(d.renli && d.renli.length) RENLI=d.renli; if(d.museums) MUSEUMS=d.museums; OFFICAL_DATA=d.official||OFFICAL_DATA; document.getElementById("ts").textContent="数据更新："+(d.ts||"")+"（实时通道在线）"; renderTabs();render(); } }
 function loadLive(){
   if(window.location.protocol==="file:")return;
   function tryJson(){
