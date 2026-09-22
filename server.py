@@ -9,7 +9,13 @@ import requests
 from bs4 import BeautifulSoup
 
 # ---------- 常量 ----------
-UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"}
+UA = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "close",
+}
 MUSEUM_URL = "https://www.hebeimuseum.org.cn/list-79-1.html"   # 河北博物院公告列表
 TECH_URL   = "https://www.hbstm.cn/"                            # 省科技馆
 XBP_URL    = "http://www.xbpjng.cn/"                             # 西柏坡纪念馆
@@ -43,29 +49,48 @@ def keep(it):
     return any(k in t for k in FILTER_KEYS)
 
 DATE_RES = [
-    re.compile(r"(\d{4})[-年\.](\d{1,2})[-月\.](\d{1,2})"),      # 标题: 2026-09-17 / 2026年9月17日
-    re.compile(r"/(\d{4})-(\d{2})-(\d{2})"),                      # /c/2026-09-17/
+    re.compile(r"(\d{4})[-年\.](\d{1,2})[-月\.](\d{1,2})"),      # 2026-09-17 / 2026年9月17日
+    re.compile(r"(\d{4})-(\d{2})-(\d{2})"),                        # URL /c/2026-09-17/
     re.compile(r"/columns/[^/]+/(\d{6})/(\d{2})/"),               # /columns/xxx/202608/10/
     re.compile(r"/(\d{4})/(\d{2})/(\d{2})"),                      # /2026/08/10/
 ]
 def pick_date(text, href):
     for rx in DATE_RES:
-        m = rx.search(text)
-        if m:
-            try: return "%s-%02d-%02d" % (int(m.group(1)), int(m.group(2)), int(m.group(3)))
-            except Exception: pass
+        for s in (text, href):
+            m = rx.search(s)
+            if m:
+                try: return "%s-%02d-%02d" % (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                except Exception: pass
     return ""
 
 # ---------- 抓取 ----------
-def fetch(url, timeout=15):
-    try:
-        r = requests.get(url, headers=UA, timeout=timeout, allow_redirects=True)
-        if r.encoding is None or r.encoding.lower() in ("iso-8859-1", "ascii"):
-            r.encoding = "utf-8"
-        return r.text
-    except Exception as e:
-        print("[fetch err]", url, str(e)[:50], flush=True)
-        return ""
+try:
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+except Exception:
+    pass
+
+def fetch(url, timeout=25, retries=3):
+    """带重试 + http/https 双通道回退 + 关闭证书校验的健壮抓取。"""
+    urls = [url]
+    if url.startswith("https://"):
+        urls.append(url.replace("https://", "http://", 1))
+    last = None
+    for u in urls:
+        for i in range(retries):
+            try:
+                r = requests.get(u, headers=UA, timeout=timeout, allow_redirects=True, verify=False)
+                if r.encoding is None or r.encoding.lower() in ("iso-8859-1", "ascii"):
+                    r.encoding = "utf-8"
+                if r.status_code == 200 and len(r.text) > 200:
+                    return r.text
+                print("[fetch weak]", u, r.status_code, len(r.text), flush=True)
+                last = "status"
+            except Exception as e:
+                print("[fetch err]", u, str(e)[:40], flush=True)
+                last = e
+                time.sleep(min(3 * (i + 1), 8))
+    return ""
 
 def extract_list(url):
     """通用公告列表抓取：从标题或链接提取日期，返回 [{title,date,url}]。"""
